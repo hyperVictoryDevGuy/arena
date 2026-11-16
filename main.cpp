@@ -1,5 +1,6 @@
 #include <print>
 #include <cstdlib>
+#include <iostream>
 
 namespace ekp {
 
@@ -53,8 +54,13 @@ struct arena {
 
     // allocates memory and constructs object of type T into the allocated memory
     template<typename T, typename... Args>
+    [[nodiscard]]
     T* create(Args&&... args) {
-        return nullptr;
+        void* ptr = allocate(sizeof(T), alignof(T));
+
+        return std::construct_at(
+            static_cast<T*>(ptr),
+            std::forward<Args>(args)...);
     }
 
     arena() = default;
@@ -85,9 +91,24 @@ private:
  *  NOTE: does not explicitly support overaligned types
  */
 
+struct printer {
+    int a = 0;
+    int b = 0;
+
+    void print() {
+        std::print("a: {}, b: {} \n", a, b);
+    }
+};
+
 int main() {
     constexpr size_t block_size = sizeof(char) * 1024;
     ekp::arena arena = ekp::arena::init(block_size);
+
+    const auto prtr = arena.create<printer>();
+    prtr->print();
+    prtr->a = 10;
+    prtr->b = 20;
+    prtr->print();
 
     std::print("arena size: {}\n", arena.size_bytes);
     return 0;
