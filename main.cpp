@@ -6,15 +6,55 @@ namespace ekp {
 struct arena {
     size_t size_bytes = 0;
     std::byte* head = nullptr;
-    std::byte* position = nullptr;
+    size_t position_bytes = 0;
 
     [[nodiscard]]
     static arena init(const size_t size) {
         arena ret;
         ret.size_bytes = size;
         ret.head = static_cast<std::byte*>(std::malloc(size));
-        ret.position = ret.head;
+        ret.position_bytes = 0;
         return ret;
+    }
+
+    // allocates the size specified at a valid address of alignment, returning a pointer.
+    // NOTE: when allocating a size 0, the position counter will not advance and that allocation may be overwritten.
+    void* allocate(const size_t size, const size_t alignment) {
+        if (!head) {
+            std::print("arena has not been initialized\n");
+            return nullptr;
+        }
+
+        if (alignment == 0 || (alignment & (alignment - 1)) != 0) {
+            std::print("alignment must be a power of 2\n");
+            return nullptr;
+        }
+
+        if (position_bytes > SIZE_MAX - (alignment - 1)) {
+            std::print("alignment calculation overflowed\n");
+            return nullptr;
+        }
+
+        if (alignment > alignof(std::max_align_t)) {
+            std::print("arena does not support overaligned types.\n");
+            return nullptr;
+        }
+
+        const size_t aligned_offset = (position_bytes + alignment - 1) & ~ (alignment - 1);
+
+        if (aligned_offset > size_bytes || size > size_bytes - aligned_offset) {
+            std::print("arena bounds exceeded\n");
+            return nullptr;
+        }
+
+        position_bytes = aligned_offset + size;
+        return head + aligned_offset;
+    }
+
+    // allocates memory and constructs object of type T into the allocated memory
+    template<typename T, typename... Args>
+    T* create(Args&&... args) {
+        return nullptr;
     }
 
     arena() = default;
@@ -38,8 +78,11 @@ private:
  * Arena Allocator mechanics:
  *  - allocates entire program's memory (or at least a substantial portion) at once
  *  - all allocations happen sequentially
- *  - allocations tracked via an advancing pointer
+ *  - allocations tracked via an advancing pointer according to alignment
+ *      -- memory address of the allocated object must be a multiple of its alignment
  *  - nontrivial destructors typically ignored and entire arena freed at once
+ *
+ *  NOTE: does not explicitly support overaligned types
  */
 
 int main() {
