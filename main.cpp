@@ -20,6 +20,7 @@ struct arena {
 
     // allocates the size specified at a valid address of alignment, returning a pointer.
     // NOTE: when allocating a size 0, the position counter will not advance and that allocation may be overwritten.
+    [[nodiscard]]
     void* allocate(const size_t size, const size_t alignment) {
         if (!head) {
             std::print("arena has not been initialized\n");
@@ -78,6 +79,30 @@ private:
 
 };
 
+// max size includes null terminator
+class text_line {
+public:
+
+    text_line(const size_t size, arena& arena)
+        : _max_size(size), _arena(arena)
+    {
+
+    }
+
+    // delete all constructors and ill define when needed
+    text_line() = delete;
+    text_line(const text_line& other) = delete;
+    text_line& operator=(const text_line& other) = delete;
+    text_line(text_line&& other) = delete;
+    text_line& operator=(text_line&& other) = delete;
+
+private:
+    size_t _max_size = 0;
+    size_t _length_offset = 0;
+    char* _data = nullptr;
+    arena& _arena;
+};
+
 }
 
 /*
@@ -110,6 +135,16 @@ int main() {
     prtr->b = 20;
     prtr->print();
 
-    std::print("arena size: {}\n", arena.size_bytes);
+    // what do i expect?
+    // - construct a line
+    //  -- can construct it with existing text
+    // - insert / edit characters at offset with space padding
+    //  -- so long as offset is less than length (gotta prevent overrunning null)
+    // - call .c_str() to get c string representation
+    //
+    // * needs to allocate string data on the arena too
+    // ekp::text_line* line = arena.create<text_line>(80, "Hello, World!", arena);
+    // ekp::test_line* line = arena.create<text_line>(80, arena);
+
     return 0;
 }
